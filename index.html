@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>GhostNet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin: 0; background: #000; color: #00ff66; font-family: monospace; }
+h2 { text-align: center; margin: 10px; text-shadow: 0 0 5px #00ff66; }
+#feed { padding: 10px; max-width: 800px; margin: 0 auto; }
+.post {
+  border: 1px solid #00ff66;
+  padding: 12px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.8);
+}
+.post:hover { background: rgba(0,255,102,0.05); }
+.media { font-size: 12px; color: #888; margin-top: 6px; }
+.post-meta { margin-top: 10px; font-size: 15px; color: #00ff99; }
+
+.toggle-comments {
+  color: #ffcc66;
+  cursor: pointer;
+  margin-top: 10px;
+  font-weight: bold;
+}
+.toggle-comments:hover { color: #ffff66; }
+
+.comments-container {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #00ff66;
+}
+.comment {
+  border: 1px solid #00ff66;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: rgba(0,255,102,0.05);
+}
+.ai-type { color: #ffcc66; font-weight: bold; }
+
+#postBox {
+  padding: 10px;
+  border-bottom: 1px solid #00ff66;
+  max-width: 800px;
+  margin: 0 auto;
+}
+input, button {
+  background: black;
+  color: #00ff66;
+  border: 1px solid #00ff66;
+  padding: 8px;
+  font-family: monospace;
+}
+button:hover { background: #00ff66; color: black; }
+</style>
+</head>
+<body>
+<h2>GhostNet</h2>
+
+<div id="postBox">
+  <form id="postForm">
+    <input id="caption" placeholder="Write post..." required />
+    <input id="file" type="file" />
+    <button type="submit">Post</button>
+  </form>
+</div>
+
+<div id="feed"></div>
+
+<script>
+const feed = document.getElementById("feed");
+const openDropdowns = new Set();
+
+async function buildPostsOnce() {
+  try {
+    const res = await fetch("/posts");
+    const data = await res.json();
+    
+    feed.innerHTML = "";
+
+    (data.posts || []).forEach(p => {
+      const count = p.comment_count || 0;
+      let media = p.media ? `<div class="media">📎 <a href="/uploads/${p.media}" target="_blank">view media</a></div>` : "";
+
+      const postDiv = document.createElement("div");
+      postDiv.className = "post";
+      postDiv.id = `post-${p.id}`;
+      
+      postDiv.innerHTML = `
+        <div><b>🧍 Arul</b></div>
+        <div>${p.caption}</div>
+        ${media}
+        <div class="post-meta" id="meta-${p.id}">
+          👍 <b>${p.likes || 0}</b> &nbsp;&nbsp;&nbsp;&nbsp; 
+          👎 <b>${p.dislikes || 0}</b>
+        </div>
+        <div class="toggle-comments" data-post-id="${p.id}">
+          ▼ ${count} comment${count !== 1 ? 's' : ''}
+        </div>
+        <div class="comments-container" id="comments-${p.id}"></div>
+      `;
+
+      const toggleBtn = postDiv.querySelector('.toggle-comments');
+      toggleBtn.addEventListener('click', () => toggleComments(toggleBtn, p.id));
+
+      feed.appendChild(postDiv);
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function updateOnlyNumbers() {
+  try {
+    const res = await fetch("/posts");
+    const data = await res.json();
+
+    (data.posts || []).forEach(p => {
+      // Update likes/dislikes
+      const meta = document.getElementById(`meta-${p.id}`);
+      if (meta) {
+        meta.innerHTML = `👍 <b>${p.likes || 0}</b> &nbsp;&nbsp;&nbsp;&nbsp; 👎 <b>${p.dislikes || 0}</b>`;
+      }
+
+      // Update comment count ONLY if dropdown is CLOSED
+      const toggle = document.querySelector(`.toggle-comments[data-post-id="${p.id}"]`);
+      const container = document.getElementById(`comments-${p.id}`);
+      
+      if (toggle && container && container.style.display !== "block") {
+        const count = p.comment_count || 0;
+        toggle.innerHTML = `▼ ${count} comment${count !== 1 ? 's' : ''}`;
+      }
+    });
+  } catch (e) {}
+}
+
+async function toggleComments(element, postId) {
+  const container = document.getElementById(`comments-${postId}`);
+
+  if (container.style.display === "block") {
+    // Close
+    container.style.display = "none";
+    openDropdowns.delete(postId);
+    const count = element.textContent.match(/\d+/)?.[0] || 0;
+    element.innerHTML = `▼ ${count} comment${count != 1 ? 's' : ''}`;
+  } else {
+    // Open
+    container.style.display = "block";
+    openDropdowns.add(postId);
+    element.innerHTML = "▲ loading...";
+
+    try {
+      const res = await fetch(`/comments/${postId}`);
+      const data = await res.json();
+      let html = "";
+      (data.comments || []).forEach(c => {
+       html += `
+         <div class="comment">
+         <div class="ai-type">👤 ${c.user || c.type}</div>
+         <div>${c.text}</div>
+         </div>
+        `;
+      });
+      container.innerHTML = html || "<div style='color:#666;padding:10px;'>No comments yet...</div>";
+      
+      // Update to correct count after loading
+      element.innerHTML = `▲ ${data.comments ? data.comments.length : 0} comments`;
+    } catch (e) {
+      container.innerHTML = "<div style='color:red'>Failed to load comments</div>";
+    }
+  }
+}
+
+// Form Submit
+document.getElementById("postForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formData = new FormData();
+  formData.append("caption", document.getElementById("caption").value);
+  
+  const file = document.getElementById("file");
+  if (file.files.length > 0) formData.append("file", file.files[0]);
+
+  await fetch("/post", { method: "POST", body: formData });
+  
+  document.getElementById("caption").value = "";
+  file.value = "";
+  await buildPostsOnce();
+});
+
+// Initial build
+buildPostsOnce();
+
+// Only update numbers every 4 seconds (keeps dropdowns stable)
+setInterval(updateOnlyNumbers, 4000);
+</script>
+</body>
+</html>
