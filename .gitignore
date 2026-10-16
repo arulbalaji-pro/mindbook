@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & local credentials
+.env
+!.env.example
+
+# Local databases & uploads
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+data/
+
+# Logs & OS artifacts
+*.log
+.DS_Store

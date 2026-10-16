@@ -1,201 +1,658 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GhostNet</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindBook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
-body { margin: 0; background: #000; color: #00ff66; font-family: monospace; }
-h2 { text-align: center; margin: 10px; text-shadow: 0 0 5px #00ff66; }
-#feed { padding: 10px; max-width: 800px; margin: 0 auto; }
-.post {
-  border: 1px solid #00ff66;
-  padding: 12px;
-  margin-bottom: 15px;
-  border-radius: 6px;
-  background: rgba(0,0,0,0.8);
-}
-.post:hover { background: rgba(0,255,102,0.05); }
-.media { font-size: 12px; color: #888; margin-top: 6px; }
-.post-meta { margin-top: 10px; font-size: 15px; color: #00ff99; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: "lucida grande", tahoma, verdana, arial, sans-serif; }
+  body { background: #e9eaed; color: #333; font-size: 11px; }
 
-.toggle-comments {
-  color: #ffcc66;
-  cursor: pointer;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.toggle-comments:hover { color: #ffff66; }
+  #blueBar {
+    background: #3b5998;
+    height: 42px;
+    border-bottom: 1px solid #133783;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .blueBar-inner {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+  .left-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo {
+    color: #fff;
+    font-size: 22px;
+    font-weight: bold;
+    text-decoration: none;
+    letter-spacing: -1.2px;
+    cursor: pointer;
+  }
 
-.comments-container {
-  display: none;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #00ff66;
-}
-.comment {
-  border: 1px solid #00ff66;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 8px;
-  background: rgba(0,255,102,0.05);
-}
-.ai-type { color: #ffcc66; font-weight: bold; }
+  /* Classic Notification Jewel */
+  .jewel-container {
+    position: relative;
+    cursor: pointer;
+  }
+  .jewel-button {
+    background: #2b4170;
+    border: 1px solid #1a2847;
+    border-radius: 2px;
+    padding: 3px 8px;
+    color: #fff;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+  }
+  .jewel-button:hover { background: #355088; }
+  .jewel-badge {
+    background: #dc0d17;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 2px;
+    border: 1px solid #8e0000;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    display: none;
+  }
 
-#postBox {
-  padding: 10px;
-  border-bottom: 1px solid #00ff66;
-  max-width: 800px;
-  margin: 0 auto;
-}
-input, button {
-  background: black;
-  color: #00ff66;
-  border: 1px solid #00ff66;
-  padding: 8px;
-  font-family: monospace;
-}
-button:hover { background: #00ff66; color: black; }
+  /* Notification Dropdown */
+  #notifDropdown {
+    display: none;
+    position: absolute;
+    top: 32px;
+    left: 0;
+    width: 260px;
+    background: #fff;
+    border: 1px solid #777;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    z-index: 1000;
+    border-radius: 2px;
+  }
+  .notif-header {
+    background: #f2f2f2;
+    padding: 6px 10px;
+    font-weight: bold;
+    color: #333;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    justify-content: space-between;
+  }
+  .notif-clear {
+    color: #3b5998;
+    cursor: pointer;
+    font-weight: normal;
+  }
+  .notif-clear:hover { text-decoration: underline; }
+  .notif-list {
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .notif-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    color: #222;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item.unread { background: #eceff5; font-weight: bold; }
+
+  .nav-search input {
+    width: 240px;
+    padding: 4px 6px;
+    font-size: 11px;
+    border: 1px solid #1d3c78;
+    border-radius: 1px;
+  }
+
+  #mainLayout {
+    width: 100%;
+    max-width: 980px;
+    margin: 12px auto;
+    display: flex;
+    gap: 15px;
+    padding: 0 8px;
+  }
+  #sidebar {
+    width: 180px;
+    flex-shrink: 0;
+  }
+  .side-link {
+    display: block;
+    padding: 6px 8px;
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 2px;
+  }
+  .side-link:hover, .side-link.active {
+    background: #d8dfea;
+    color: #3b5998;
+  }
+
+  #contentArea {
+    flex: 1;
+    max-width: 600px;
+    width: 100%;
+  }
+
+  #publisher {
+    background: #fff;
+    border: 1px solid #bdc7d8;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+  .pub-header {
+    background: #f2f2f2;
+    padding: 7px 10px;
+    border-bottom: 1px solid #e5e5e5;
+    font-weight: bold;
+    color: #3b5998;
+    font-size: 11px;
+  }
+  .pub-body {
+    padding: 10px;
+  }
+  .pub-body textarea {
+    width: 100%;
+    height: 55px;
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 13px;
+    color: #333;
+  }
+  .pub-footer {
+    background: #f2f2f2;
+    border-top: 1px solid #e5e5e5;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .file-label {
+    cursor: pointer;
+    color: #3b5998;
+    font-weight: bold;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .file-label input { display: none; }
+  #file-name-preview { color: #666; font-size: 10px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-share {
+    background: #5b74a8;
+    color: #fff;
+    border: 1px solid #29447e;
+    font-weight: bold;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 11px;
+    border-radius: 2px;
+  }
+  .btn-share:hover { background: #3b5998; }
+
+  .fb-post {
+    background: #fff;
+    border: 1px solid #bdc7d8;
+    border-radius: 3px;
+    padding: 12px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .fb-post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .fb-user-info {
+    display: flex;
+    gap: 10px;
+  }
+  .fb-avatar {
+    width: 38px;
+    height: 38px;
+    background: #eceff5;
+    border: 1px solid #d8dfea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .fb-author {
+    color: #3b5998;
+    font-weight: bold;
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .fb-date {
+    color: #999;
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  
+  .fb-delete-btn {
+    color: #999;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    border: none;
+    background: transparent;
+  }
+  .fb-delete-btn:hover { color: #cc181e; }
+
+  .fb-content {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #111;
+    margin: 8px 0;
+    word-break: break-word;
+  }
+  .fb-media {
+    margin: 8px 0;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+    max-height: 480px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .fb-media img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    max-height: 480px;
+    display: block;
+    object-fit: contain;
+  }
+  .fb-media video {
+    width: 100%;
+    max-height: 480px;
+    display: block;
+  }
+
+  .fb-actions {
+    padding-top: 8px;
+    border-top: 1px solid #e5e5e5;
+    display: flex;
+    gap: 16px;
+    color: #3b5998;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .fb-actions span {
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .fb-actions span:hover { text-decoration: underline; }
+
+  .fb-comments-wrap {
+    margin-top: 8px;
+    background: #edeff4;
+    border-top: 1px solid #d8dfea;
+    padding: 8px 10px;
+    display: none;
+  }
+  .fb-comment-item {
+    display: flex;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #e2e6ee;
+  }
+  .fb-comment-item:last-child { border-bottom: none; }
+  .fb-comment-body {
+    flex: 1;
+    font-size: 11px;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+  .fb-comment-user {
+    color: #3b5998;
+    font-weight: bold;
+  }
+  .fb-comment-type {
+    color: #888;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  @media (max-width: 768px) {
+    #sidebar { display: none; }
+    #mainLayout { margin: 8px auto; padding: 0 6px; justify-content: center; }
+    #contentArea { max-width: 100%; }
+    .nav-search { display: none; }
+  }
 </style>
 </head>
 <body>
-<h2>GhostNet</h2>
 
-<div id="postBox">
-  <form id="postForm">
-    <input id="caption" placeholder="Write post..." required />
-    <input id="file" type="file" />
-    <button type="submit">Post</button>
-  </form>
-</div>
-
-<div id="feed"></div>
-
-<script>
-const feed = document.getElementById("feed");
-const openDropdowns = new Set();
-
-async function buildPostsOnce() {
-  try {
-    const res = await fetch("/posts");
-    const data = await res.json();
-    
-    feed.innerHTML = "";
-
-    (data.posts || []).forEach(p => {
-      const count = p.comment_count || 0;
-      let media = p.media ? `<div class="media">📎 <a href="/uploads/${p.media}" target="_blank">view media</a></div>` : "";
-
-      const postDiv = document.createElement("div");
-      postDiv.className = "post";
-      postDiv.id = `post-${p.id}`;
-      
-      postDiv.innerHTML = `
-        <div><b>🧍 Arul</b></div>
-        <div>${p.caption}</div>
-        ${media}
-        <div class="post-meta" id="meta-${p.id}">
-          👍 <b>${p.likes || 0}</b> &nbsp;&nbsp;&nbsp;&nbsp; 
-          👎 <b>${p.dislikes || 0}</b>
+  <div id="blueBar">
+    <div class="blueBar-inner">
+      <div class="left-header">
+        <a class="logo" onclick="location.reload()">mindbook</a>
+        <div class="jewel-container" onclick="toggleNotifDropdown(event)">
+          <div class="jewel-button">
+            🔔 Notifications
+            <span id="jewelBadge" class="jewel-badge">0</span>
+          </div>
+          <div id="notifDropdown" onclick="event.stopPropagation()">
+            <div class="notif-header">
+              <span>Notifications</span>
+              <span class="notif-clear" onclick="clearNotifications()">Mark as read</span>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div style="padding:10px; color:#888; text-align:center;">No new notifications</div>
+            </div>
+          </div>
         </div>
-        <div class="toggle-comments" data-post-id="${p.id}">
-          ▼ ${count} comment${count !== 1 ? 's' : ''}
-        </div>
-        <div class="comments-container" id="comments-${p.id}"></div>
-      `;
+      </div>
+      <div class="nav-search">
+        <input type="text" placeholder="Search">
+      </div>
+    </div>
+  </div>
 
-      const toggleBtn = postDiv.querySelector('.toggle-comments');
-      toggleBtn.addEventListener('click', () => toggleComments(toggleBtn, p.id));
+  <div id="mainLayout">
+    <div id="sidebar">
+      <a href="#" class="side-link active" onclick="location.reload()">News Feed</a>
+      <a href="#" class="side-link">Messages</a>
+      <a href="#" class="side-link">Events</a>
+      <a href="#" class="side-link">Photos</a>
+    </div>
 
-      feed.appendChild(postDiv);
-    });
-  } catch (e) {
-    console.error(e);
-  }
-}
+    <div id="contentArea">
+      <div id="publisher">
+        <div class="pub-header">Update Status</div>
+        <form id="postForm">
+          <div class="pub-body">
+            <textarea id="caption" placeholder="What's on your mind?" required></textarea>
+          </div>
+          <div class="pub-footer">
+            <label class="file-label">
+              📷 Add Photo / Video
+              <input type="file" id="file" onchange="previewFile(this)">
+            </label>
+            <span id="file-name-preview"></span>
+            <button type="submit" class="btn-share">Share</button>
+          </div>
+        </form>
+      </div>
 
-async function updateOnlyNumbers() {
-  try {
-    const res = await fetch("/posts");
-    const data = await res.json();
+      <div id="feed"></div>
+    </div>
+  </div>
 
-    (data.posts || []).forEach(p => {
-      // Update likes/dislikes
-      const meta = document.getElementById(`meta-${p.id}`);
-      if (meta) {
-        meta.innerHTML = `👍 <b>${p.likes || 0}</b> &nbsp;&nbsp;&nbsp;&nbsp; 👎 <b>${p.dislikes || 0}</b>`;
+  <script>
+    const feed = document.getElementById("feed");
+    const jewelBadge = document.getElementById("jewelBadge");
+    const notifDropdown = document.getElementById("notifDropdown");
+    const notifList = document.getElementById("notifList");
+    const openDropdowns = new Set();
+
+    function getStoredStats() {
+      try {
+        return JSON.parse(localStorage.getItem('mb_stats') || '{}');
+      } catch (e) {
+        return {};
       }
-
-      // Update comment count ONLY if dropdown is CLOSED
-      const toggle = document.querySelector(`.toggle-comments[data-post-id="${p.id}"]`);
-      const container = document.getElementById(`comments-${p.id}`);
-      
-      if (toggle && container && container.style.display !== "block") {
-        const count = p.comment_count || 0;
-        toggle.innerHTML = `▼ ${count} comment${count !== 1 ? 's' : ''}`;
-      }
-    });
-  } catch (e) {}
-}
-
-async function toggleComments(element, postId) {
-  const container = document.getElementById(`comments-${postId}`);
-
-  if (container.style.display === "block") {
-    // Close
-    container.style.display = "none";
-    openDropdowns.delete(postId);
-    const count = element.textContent.match(/\d+/)?.[0] || 0;
-    element.innerHTML = `▼ ${count} comment${count != 1 ? 's' : ''}`;
-  } else {
-    // Open
-    container.style.display = "block";
-    openDropdowns.add(postId);
-    element.innerHTML = "▲ loading...";
-
-    try {
-      const res = await fetch(`/comments/${postId}`);
-      const data = await res.json();
-      let html = "";
-      (data.comments || []).forEach(c => {
-       html += `
-         <div class="comment">
-         <div class="ai-type">👤 ${c.user || c.type}</div>
-         <div>${c.text}</div>
-         </div>
-        `;
-      });
-      container.innerHTML = html || "<div style='color:#666;padding:10px;'>No comments yet...</div>";
-      
-      // Update to correct count after loading
-      element.innerHTML = `▲ ${data.comments ? data.comments.length : 0} comments`;
-    } catch (e) {
-      container.innerHTML = "<div style='color:red'>Failed to load comments</div>";
     }
-  }
-}
 
-// Form Submit
-document.getElementById("postForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const formData = new FormData();
-  formData.append("caption", document.getElementById("caption").value);
-  
-  const file = document.getElementById("file");
-  if (file.files.length > 0) formData.append("file", file.files[0]);
+    function saveStoredStats(stats) {
+      localStorage.setItem('mb_stats', JSON.stringify(stats));
+    }
 
-  await fetch("/post", { method: "POST", body: formData });
-  
-  document.getElementById("caption").value = "";
-  file.value = "";
-  await buildPostsOnce();
-});
+    function toggleNotifDropdown(e) {
+      e.stopPropagation();
+      const isVisible = notifDropdown.style.display === "block";
+      notifDropdown.style.display = isVisible ? "none" : "block";
+    }
 
-// Initial build
-buildPostsOnce();
+    document.addEventListener("click", () => {
+      if (notifDropdown) notifDropdown.style.display = "none";
+    });
 
-// Only update numbers every 4 seconds (keeps dropdowns stable)
-setInterval(updateOnlyNumbers, 4000);
-</script>
+    function clearNotifications() {
+      if (window.cachedPosts) {
+        const stats = {};
+        window.cachedPosts.forEach(p => {
+          stats[p.id] = {
+            likes: p.likes || 0,
+            dislikes: p.dislikes || 0,
+            comments: p.comment_count || 0
+          };
+        });
+        saveStoredStats(stats);
+      }
+      jewelBadge.style.display = "none";
+      jewelBadge.textContent = "0";
+      notifList.innerHTML = '<div style="padding:10px; color:#888; text-align:center;">No new notifications</div>';
+    }
+
+    function checkNotifications(posts) {
+      const stored = getStoredStats();
+      let totalUnread = 0;
+      let itemsHtml = "";
+
+      posts.forEach(p => {
+        const prev = stored[p.id] || { likes: 0, dislikes: 0, comments: 0 };
+        const newLikes = Math.max(0, (p.likes || 0) - prev.likes);
+        const newDislikes = Math.max(0, (p.dislikes || 0) - prev.dislikes);
+        const newComments = Math.max(0, (p.comment_count || 0) - prev.comments);
+
+        const diff = newLikes + newDislikes + newComments;
+        if (diff > 0) {
+          totalUnread += diff;
+          let summary = [];
+          if (newLikes > 0) summary.push(`👍 ${newLikes} like${newLikes > 1 ? 's' : ''}`);
+          if (newDislikes > 0) summary.push(`👎 ${newDislikes} dislike${newDislikes > 1 ? 's' : ''}`);
+          if (newComments > 0) summary.push(`💬 ${newComments} comment${newComments > 1 ? 's' : ''}`);
+
+          const snippet = (p.caption || 'your post').substring(0, 35);
+          itemsHtml += `
+            <div class="notif-item unread">
+              <b>Activity on "${escapeHtml(snippet)}..."</b><br>
+              <span style="color:#555;">${summary.join(', ')}</span>
+            </div>
+          `;
+        }
+      });
+
+      if (totalUnread > 0) {
+        jewelBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+        jewelBadge.style.display = "inline-block";
+        notifList.innerHTML = itemsHtml;
+      } else {
+        jewelBadge.style.display = "none";
+        notifList.innerHTML = '<div style="padding:10px; color:#888; text-align:center;">No new notifications</div>';
+      }
+    }
+
+    function previewFile(input) {
+      const span = document.getElementById("file-name-preview");
+      span.textContent = input.files.length ? input.files[0].name : "";
+    }
+
+    function renderMedia(filename) {
+      if (!filename) return "";
+      const ext = filename.split('.').pop().toLowerCase();
+      if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) {
+        return `<div class="fb-media"><video src="/uploads/${filename}" controls playsinline></video></div>`;
+      }
+      return `<div class="fb-media"><img src="/uploads/${filename}" loading="lazy" /></div>`;
+    }
+
+    async function deletePost(postId) {
+      if (!confirm("Are you sure you want to delete this post?")) return;
+      try {
+        const res = await fetch(`/post/${postId}`, { method: "DELETE" });
+        if (res.ok) {
+          const el = document.getElementById(`post-${postId}`);
+          if (el) el.remove();
+        }
+      } catch (e) {
+        console.error("Delete failed:", e);
+      }
+    }
+
+    async function buildPostsOnce() {
+      try {
+        const res = await fetch("/posts");
+        const data = await res.json();
+        const posts = data.posts || [];
+        window.cachedPosts = posts;
+
+        feed.innerHTML = "";
+
+        posts.forEach(p => {
+          const count = p.comment_count || 0;
+          const postDiv = document.createElement("div");
+          postDiv.className = "fb-post";
+          postDiv.id = `post-${p.id}`;
+
+          postDiv.innerHTML = `
+            <div class="fb-post-header">
+              <div class="fb-user-info">
+                <div class="fb-avatar">👤</div>
+                <div>
+                  <a class="fb-author">Arul</a>
+                  <div class="fb-date">Just now</div>
+                </div>
+              </div>
+              <button class="fb-delete-btn" title="Delete Post" onclick="deletePost('${p.id}')">×</button>
+            </div>
+            <div class="fb-content">${escapeHtml(p.caption)}</div>
+            ${renderMedia(p.media)}
+            <div class="fb-actions">
+              <span>👍 Like (<b id="likes-${p.id}">${p.likes || 0}</b>)</span>
+              <span>👎 Dislike (<b id="dislikes-${p.id}">${p.dislikes || 0}</b>)</span>
+              <span class="toggle-comments" data-post-id="${p.id}">
+                💬 Comment (<b id="count-${p.id}">${count}</b>)
+              </span>
+            </div>
+            <div class="fb-comments-wrap" id="comments-${p.id}"></div>
+          `;
+
+          const toggleBtn = postDiv.querySelector('.toggle-comments');
+          toggleBtn.addEventListener('click', () => toggleComments(p.id));
+
+          feed.appendChild(postDiv);
+        });
+
+        if (!localStorage.getItem("mb_stats_init")) { clearNotifications(); localStorage.setItem("mb_stats_init", "1"); } else { checkNotifications(posts); }
+      } catch (e) {
+        console.error("Feed error:", e);
+      }
+    }
+
+    async function updateOnlyNumbers() {
+      try {
+        const res = await fetch("/posts");
+        const data = await res.json();
+        const posts = data.posts || [];
+        window.cachedPosts = posts;
+
+        posts.forEach(p => {
+          const lEl = document.getElementById(`likes-${p.id}`);
+          const dEl = document.getElementById(`dislikes-${p.id}`);
+          const cEl = document.getElementById(`count-${p.id}`);
+
+          if (lEl) lEl.textContent = p.likes || 0;
+          if (dEl) dEl.textContent = p.dislikes || 0;
+          if (cEl) cEl.textContent = p.comment_count || 0;
+        });
+
+        if (!localStorage.getItem("mb_stats_init")) { clearNotifications(); localStorage.setItem("mb_stats_init", "1"); } else { checkNotifications(posts); }
+      } catch (e) {}
+    }
+
+    async function toggleComments(postId) {
+      const container = document.getElementById(`comments-${postId}`);
+
+      if (container.style.display === "block") {
+        container.style.display = "none";
+        openDropdowns.delete(postId);
+      } else {
+        container.style.display = "block";
+        openDropdowns.add(postId);
+        container.innerHTML = "<div style='color:#777; padding:4px;'>Loading comments...</div>";
+
+        try {
+          const res = await fetch(`/comments/${postId}`);
+          const data = await res.json();
+          let html = "";
+
+          (data.comments || []).forEach(c => {
+            html += `
+              <div class="fb-comment-item">
+                <div style="font-size:14px;">💬</div>
+                <div class="fb-comment-body">
+                  <span class="fb-comment-user">${escapeHtml(c.user || 'Friend')}</span>
+                  <span class="fb-comment-type">(${escapeHtml(c.type)})</span>
+                  <div>${escapeHtml(c.text)}</div>
+                </div>
+              </div>
+            `;
+          });
+
+          container.innerHTML = html || "<div style='color:#777; padding:4px;'>No comments yet...</div>";
+        } catch (e) {
+          container.innerHTML = "<div style='color:red; padding:4px;'>Failed to load comments</div>";
+        }
+      }
+    }
+
+    document.getElementById("postForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append("caption", document.getElementById("caption").value);
+
+      const fileInput = document.getElementById("file");
+      if (fileInput.files.length > 0) {
+        formData.append("file", fileInput.files[0]);
+      }
+
+      await fetch("/post", { method: "POST", body: formData });
+
+      document.getElementById("caption").value = "";
+      fileInput.value = "";
+      document.getElementById("file-name-preview").textContent = "";
+      await buildPostsOnce();
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    buildPostsOnce();
+    setInterval(updateOnlyNumbers, 4000);
+  </script>
 </body>
 </html>

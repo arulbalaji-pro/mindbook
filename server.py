@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,7 +38,9 @@ def log(tag, msg):
 # CONFIG
 # ----------------------------
 DB_NAME = "social.db"
-LLAMA_URL = "http://127.0.0.1:8080/v1/chat/completions"
+# Ollama OpenAI-compatible chat completions endpoint
+LLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions"
+MODEL_NAME = "artifish/llama3.2-uncensored:latest"
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -60,7 +66,6 @@ def init_db():
     )
     """)
 
-    # NEW: added "username"
     c.execute("""
     CREATE TABLE IF NOT EXISTS interactions (
         id TEXT PRIMARY KEY,
@@ -114,15 +119,21 @@ PROMPTS = {
     "neutral_hater": "You dislike the post mildly. Be dismissive."
 }
 
-# ----------------------------
-# NEW: HUMAN NAMES
-# ----------------------------
+def parse_names(env_key, default_list):
+    raw = os.getenv(env_key)
+    if raw:
+        return [n.strip() for n in raw.split(",") if n.strip()]
+    return default_list
+
+CURRENT_USER = os.getenv("APP_USERNAME", "User")
+CURRENT_HANDLE = os.getenv("APP_HANDLE", "user")
+
 AI_NAMES = {
-    "support": ["Aarav", "Vihaan", "Arjun", "Reyansh", "Kabir"],
-    "curious": ["Ishaan", "Advik", "Rohan", "Kiran", "Dev"],
-    "critic": ["Ravi", "Siddharth", "Manoj", "Harish", "Nikhil"],
-    "toxic": ["Rocky", "Vicky", "Max", "Jay", "Zane"],
-    "neutral_hater": ["Amit", "Suresh", "Naresh", "Lokesh", "Dinesh"]
+    "support": parse_names("AI_SUPPORT_NAMES", ["Aarav", "Vihaan", "Arjun", "Reyansh", "Kabir"]),
+    "curious": parse_names("AI_CURIOUS_NAMES", ["Ishaan", "Advik", "Rohan", "Kiran", "Dev"]),
+    "critic": parse_names("AI_CRITIC_NAMES", ["Ravi", "Siddharth", "Manoj", "Harish", "Nikhil"]),
+    "toxic": parse_names("AI_TOXIC_NAMES", ["Rocky", "Vicky", "Max", "Jay", "Zane"]),
+    "neutral_hater": parse_names("AI_NEUTRAL_HATER_NAMES", ["Amit", "Suresh", "Naresh", "Lokesh", "Dinesh"])
 }
 
 
@@ -135,12 +146,9 @@ def get_ai_name(conn, post_id, ai_type):
     """, (post_id, ai_type)).fetchall()
 
     used = [r["username"] for r in rows]
-
     pool = AI_NAMES.get(ai_type, ["User"])
-
     available = [n for n in pool if n not in used]
 
-    # NO names left
     if not available:
         return None
 
@@ -168,19 +176,14 @@ def get_db():
 def get_ai_reaction(ai_type):
     if ai_type == "support":
         return (1, 0)
-
     elif ai_type == "curious":
         return (random.choice([1, 0]), 0)
-
     elif ai_type == "critic":
         return (0, random.choice([1, 0]))
-
     elif ai_type == "toxic":
         return (0, 1)
-
     elif ai_type == "neutral_hater":
         return (0, random.choice([1, 0]))
-
     return (0, 0)
 
 
@@ -189,15 +192,12 @@ def get_ai_reaction(ai_type):
 # ----------------------------
 @app.post("/post")
 async def create_post(caption: str = Form(...), file: UploadFile = File(None)):
-
     post_id = str(uuid.uuid4())
-
     filename = None
 
-    if file:
+    if file and file.filename:
         filename = f"{post_id}_{file.filename}"
         path = os.path.join(UPLOAD_DIR, filename)
-
         with open(path, "wb") as f:
             f.write(await file.read())
 
@@ -213,7 +213,6 @@ async def create_post(caption: str = Form(...), file: UploadFile = File(None)):
     conn.close()
 
     log("POST", f"Created {post_id}")
-
     schedule_ai(post_id)
 
     return {"post_id": post_id}
@@ -223,27 +222,21 @@ async def create_post(caption: str = Form(...), file: UploadFile = File(None)):
 # SCHEDULER
 # ----------------------------
 def schedule_ai(post_id):
-
     log("SCHEDULER", f"Scheduling {post_id}")
 
     conn = get_db()
     c = conn.cursor()
-
     now = time.time()
 
     ai_queue = []
-
     for group, count in AI_GROUPS:
         ai_queue += [group] * count
 
     random.shuffle(ai_queue)
-
     current_time = now + 5
 
     for ai_type in ai_queue:
-
         current_time += random.randint(180, 420)
-
         c.execute(
             "INSERT INTO scheduled VALUES (?, ?, ?, ?)",
             (str(uuid.uuid4()), post_id, ai_type, current_time)
@@ -251,7 +244,6 @@ def schedule_ai(post_id):
 
     conn.commit()
     conn.close()
-
     log("SCHEDULER", "Timeline created")
 
 
@@ -259,10 +251,10 @@ def schedule_ai(post_id):
 # LLM
 # ----------------------------
 def generate_comment(ai_type, caption):
-
-    log("LLM", f"{ai_type} generating")
+    log("LLM", f"{ai_type} generating via {MODEL_NAME}")
 
     payload = {
+        "model": MODEL_NAME,
         "messages": [
             {"role": "system", "content": PROMPTS[ai_type]},
             {"role": "user", "content": caption}
@@ -273,9 +265,7 @@ def generate_comment(ai_type, caption):
 
     try:
         r = requests.post(LLAMA_URL, json=payload, timeout=30)
-
         return r.json()["choices"][0]["message"]["content"].strip()
-
     except Exception as e:
         log("ERROR", str(e))
         return "..."
@@ -285,15 +275,12 @@ def generate_comment(ai_type, caption):
 # WORKER
 # ----------------------------
 def worker():
-
     log("WORKER", "Started")
 
     while True:
-
         try:
             conn = get_db()
             c = conn.cursor()
-
             now = time.time()
 
             row = c.execute("""
@@ -308,8 +295,6 @@ def worker():
                 continue
 
             remaining = max(0, int(row["execute_at"] - now))
-
-            log("WORKER", f"Next comment in {remaining} sec")
 
             if row["execute_at"] > now:
                 conn.close()
@@ -326,20 +311,14 @@ def worker():
             ).fetchone()
 
             if post:
-
                 comment = generate_comment(ai_type, post["caption"])
-
                 username = get_ai_name(conn, post_id, ai_type)
 
-                # no unique names left
                 if not username:
-
                     log("WORKER", f"No names left for {ai_type} on post {post_id}")
-
                     c.execute("DELETE FROM scheduled WHERE id=?", (event_id,))
                     conn.commit()
                     conn.close()
-
                     time.sleep(2)
                     continue
 
@@ -370,7 +349,6 @@ def worker():
                 log("DB", f"{username} ({ai_type})")
 
             c.execute("DELETE FROM scheduled WHERE id=?", (event_id,))
-
             conn.commit()
             conn.close()
 
@@ -391,7 +369,6 @@ def start_worker():
 # ----------------------------
 @app.get("/posts")
 def get_posts():
-
     conn = get_db()
     c = conn.cursor()
 
@@ -411,7 +388,6 @@ def get_posts():
 
 @app.get("/comments/{post_id}")
 def get_comments(post_id: str):
-
     conn = get_db()
     c = conn.cursor()
 
@@ -438,7 +414,6 @@ def get_comments(post_id: str):
 
 @app.delete("/post/{post_id}")
 def delete_post(post_id: str):
-
     conn = get_db()
     c = conn.cursor()
 

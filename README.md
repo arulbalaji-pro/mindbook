@@ -209,3 +209,94 @@ GhostNet can evolve into a fully autonomous social simulation platform.
 Name: GhostNet
 
 A synthetic social network powered by autonomous personalities, evolving engagement, and simulated online behavior.
+
+
+## Monitoring & Operational CLI
+
+To monitor service health and database metrics for both MindBook and RetroTube, run `ai-worker-status`.
+
+### Bash Configuration (`~/.bashrc`)
+
+```bash
+# RetroTube & Simulated Social AI Stack
+ai-worker-status() {
+  echo "================================================================="
+  echo "              SIMULATED SOCIAL AI SYSTEMS STATUS                 "
+  echo "================================================================="
+
+  # --- RETROTUBE SECTION ---
+  echo -e "
+[1] RETROTUBE (Port 7004 & 5055):"
+  systemctl --user is-active retrotube-worker.service --quiet &&     echo "  • retrotube-worker.service : ACTIVE (running)" ||     echo "  • retrotube-worker.service : INACTIVE / FAILED"
+
+  curl -s -m 2 "http://127.0.0.1:5055/comments?id=ping" > /dev/null &&     echo "  • Port 5055 Bridge          : ONLINE (responding)" ||     echo "  • Port 5055 Bridge          : OFFLINE"
+
+  docker ps --filter "name=retro-tube" --format "  • {{.Names}} : {{.Status}} ({{.Ports}})"
+
+  if [ -f "$HOME/retro-tube/retrotube.db" ]; then
+    sqlite3 "$HOME/retro-tube/retrotube.db" "
+      SELECT '  • Total Comments Posted    : ' || COUNT(*) FROM comments;
+      SELECT '  • Tasks Pending Exec       : ' || COUNT(*) FROM scheduled_tasks WHERE executed = 0;
+      SELECT '  • Average Rating Given     : ' || ROUND(AVG(stars), 2) || ' / 5.0' FROM comments;
+    "
+    echo -e "
+  [Upcoming Scheduled Tasks in Queue]"
+    sqlite3 -header -column "$HOME/retro-tube/retrotube.db" "
+      SELECT 
+        id, 
+        substr(prompt, 1, 24) AS video_title, 
+        username, 
+        ai_type, 
+        stars || '★' AS rating, 
+        datetime(scheduled_time, 'unixepoch', 'localtime') AS due_at
+      FROM scheduled_tasks 
+      WHERE executed = 0 
+      ORDER BY scheduled_time ASC 
+      LIMIT 3;
+    "
+  fi
+
+  # --- MINDBOOK SECTION ---
+  echo -e "
+[2] MINDBOOK (FastAPI / Port 8018):"
+  systemctl --user is-active mindbook.service --quiet &&     echo "  • mindbook.service         : ACTIVE (running)" ||     echo "  • mindbook.service         : INACTIVE / FAILED"
+
+  curl -s -m 2 "http://127.0.0.1:8018/posts" > /dev/null &&     echo "  • Port 8018 Web Server     : ONLINE (responding)" ||     echo "  • Port 8018 Web Server     : OFFLINE"
+
+  if [ -f "$HOME/AI-Social-Media-simulation/social.db" ]; then
+    sqlite3 "$HOME/AI-Social-Media-simulation/social.db" "
+      SELECT '  • Total Posts Feed         : ' || COUNT(*) FROM posts;
+      SELECT '  • Total AI Comments        : ' || COUNT(*) FROM interactions;
+      SELECT '  • Tasks Pending in Queue   : ' || COUNT(*) FROM scheduled;
+      SELECT '  • Unique Personas Used     : ' || COUNT(DISTINCT username) FROM used_names;
+    "
+    echo -e "
+  [Latest MindBook Comment]"
+    sqlite3 -header -column "$HOME/AI-Social-Media-simulation/social.db" "
+      SELECT 
+        substr(id, 1, 8) AS id, 
+        substr(post_id, 1, 8) AS post_id, 
+        username, 
+        ai_type, 
+        substr(content, 1, 35) AS comment 
+      FROM interactions 
+      ORDER BY created_at DESC 
+      LIMIT 1;
+    "
+  fi
+
+  echo -e "
+================================================================="
+}
+
+alias sim-social-logs='journalctl --user -u retrotube-worker.service -f'
+alias mindbook-logs='journalctl --user -u mindbook.service -f -o cat'
+alias sim-social-restart='systemctl --user restart retrotube-worker.service && docker compose -f ~/retro-tube/docker-compose.yml restart && echo "[+] AI worker and RetroTube container restarted."'
+```
+
+| Command | Purpose |
+| :--- | :--- |
+| `ai-worker-status` | Health & SQLite metrics dashboard for MindBook and RetroTube |
+| `mindbook-logs` | Live unbuffered logs for MindBook worker & Ollama |
+| `sim-social-logs` | Live task execution and queue countdowns for RetroTube |
+| `sim-social-restart` | Restart RetroTube worker and Docker container |
